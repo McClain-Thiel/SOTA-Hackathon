@@ -1,0 +1,14 @@
+.venv/
+artifacts_store/
+.env
+.env.*
+!.env.example
+mlruns/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+dist/
+build/
+jobs/
+logs/

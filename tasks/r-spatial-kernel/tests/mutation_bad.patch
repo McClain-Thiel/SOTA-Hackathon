@@ -1,0 +1,13 @@
+diff --git a/R/matern_krige.R b/R/matern_krige.R
+--- a/R/matern_krige.R
++++ b/R/matern_krige.R
+@@ -39,7 +39,7 @@ spatial_predict_loo <- function(coords, values, target_coords, length_scales, nu
+     if (i < n) {
+       for (j in (i + 1L):n) {
+         dist_sq <- 0.0
+         for (dim_idx in seq_len(d)) {
+-          diff <- (coords[i, dim_idx] - coords[j, dim_idx]) / length_scales[dim_idx]
++          diff <- coords[i, dim_idx] - coords[j, dim_idx]
+           dist_sq <- dist_sq + diff * diff
+         }
+         r <- sqrt3 * sqrt(dist_sq)

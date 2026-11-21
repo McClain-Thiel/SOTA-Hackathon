@@ -1,0 +1,14 @@
+{
+  "task_id": "r-spatial-kernel",
+  "language": "r",
+  "workspace_dir": "/workspace",
+  "baseline_dir": "/opt/baseline_src",
+  "baseline_r_lib": "/opt/baseline_rlib",
+  "dev_driver": "/opt/bench/dev_cases.R",
+  "holdout_driver": "/tests/holdout_cases.R",
+  "warmup_runs": 1,
+  "timed_pairs": 5,
+  "rtol": 1e-9,
+  "atol": 1e-9,
+  "allow_multithread": false
+}

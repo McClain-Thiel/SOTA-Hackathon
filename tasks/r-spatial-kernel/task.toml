@@ -1,0 +1,20 @@
+schema_version = "1.4"
+
+[task]
+name = "repoopt/r-spatial-kernel"
+description = "Optimize anisotropic Matern 3/2 spatial kriging prediction and leave-one-out cross-validation in R while preserving numerical accuracy."
+keywords = ["scientific-computing", "spatial-statistics", "r", "rcpp", "optimization"]
+
+[agent]
+timeout_sec = 900.0
+network_mode = "public"
+
+[verifier]
+timeout_sec = 300.0
+environment_mode = "shared"
+
+[environment]
+cpus = 2
+memory_mb = 4096
+workdir = "/workspace"
+network_mode = "public"

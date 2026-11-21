@@ -1,0 +1,14 @@
+diff --git a/ljforces/core.py b/ljforces/core.py
+--- a/ljforces/core.py
++++ b/ljforces/core.py
+@@ -47,10 +47,6 @@ def compute_lj_system(
+             dx = xi - float(pos[j, 0])
+             dy = yi - float(pos[j, 1])
+             dz = zi - float(pos[j, 2])
+-
+-            dx -= box_length * round(dx * inv_box)
+-            dy -= box_length * round(dy * inv_box)
+-            dz -= box_length * round(dz * inv_box)
+ 
+             r2 = dx * dx + dy * dy + dz * dz
+             if 0.0 < r2 < r_cut_sq:

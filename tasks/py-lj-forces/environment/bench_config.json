@@ -1,0 +1,14 @@
+{
+  "task_id": "py-lj-forces",
+  "language": "python",
+  "workspace_dir": "/workspace",
+  "baseline_dir": "/opt/baseline_src",
+  "baseline_python": "/opt/baseline_venv/bin/python",
+  "dev_driver": "/opt/bench/dev_cases.py",
+  "holdout_driver": "/tests/holdout_cases.py",
+  "warmup_runs": 1,
+  "timed_pairs": 5,
+  "rtol": 1e-10,
+  "atol": 1e-10,
+  "allow_multithread": false
+}

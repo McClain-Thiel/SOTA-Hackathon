@@ -1,0 +1,20 @@
+schema_version = "1.4"
+
+[task]
+name = "repoopt/py-lj-forces"
+description = "Optimize 3D periodic Lennard-Jones 12-6 pairwise force, potential energy, and virial computation in Python while preserving float64 numerical accuracy."
+keywords = ["scientific-computing", "molecular-dynamics", "python", "optimization"]
+
+[agent]
+timeout_sec = 900.0
+network_mode = "public"
+
+[verifier]
+timeout_sec = 300.0
+environment_mode = "shared"
+
+[environment]
+cpus = 2
+memory_mb = 4096
+workdir = "/workspace"
+network_mode = "public"

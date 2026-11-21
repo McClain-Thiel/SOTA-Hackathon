@@ -1,0 +1,163 @@
+diff --git a/NAMESPACE b/NAMESPACE
+index 05953f9..91ffdb4 100644
+--- a/NAMESPACE
++++ b/NAMESPACE
+@@ -1 +1,2 @@
++useDynLib(spatialkern, .registration = TRUE)
+ export(spatial_predict_loo)
+diff --git a/R/matern_krige.R b/R/matern_krige.R
+index f4361f8..a4e6d3e 100644
+--- a/R/matern_krige.R
++++ b/R/matern_krige.R
+@@ -1,12 +1,3 @@
+-#' Anisotropic Matern 3/2 Spatial Kriging Prediction and Leave-One-Out Residuals
+-#'
+-#' @param coords Numeric matrix (N x D) of training coordinates.
+-#' @param values Numeric vector of length N of training responses.
+-#' @param target_coords Numeric matrix (M x D) of query coordinates.
+-#' @param length_scales Numeric vector of length D of positive anisotropic length scales.
+-#' @param nugget Positive scalar nugget regularization added to training diagonal.
+-#' @return Named list with `predictions` (length M) and `loo_residuals` (length N).
+-#' @export
+ spatial_predict_loo <- function(coords, values, target_coords, length_scales, nugget = 1e-4) {
+   coords <- as.matrix(coords)
+   target_coords <- as.matrix(target_coords)
+@@ -30,52 +21,14 @@ spatial_predict_loo <- function(coords, values, target_coords, length_scales, nu
+     stop("nugget must be strictly positive")
+   }
+ 
+-  sqrt3 <- sqrt(3.0)
++  k_train <- .Call(C_matern32_self, coords, length_scales, as.numeric(nugget))
++  k_cross <- .Call(C_matern32_cross, target_coords, coords, length_scales)
+ 
+-  # Baseline pairwise training covariance matrix via explicit loops
+-  k_train <- matrix(0.0, nrow = n, ncol = n)
+-  for (i in seq_len(n)) {
+-    k_train[i, i] <- 1.0 + nugget
+-    if (i < n) {
+-      for (j in (i + 1L):n) {
+-        dist_sq <- 0.0
+-        for (dim_idx in seq_len(d)) {
+-          diff <- (coords[i, dim_idx] - coords[j, dim_idx]) / length_scales[dim_idx]
+-          dist_sq <- dist_sq + diff * diff
+-        }
+-        r <- sqrt3 * sqrt(dist_sq)
+-        val <- (1.0 + r) * exp(-r)
+-        k_train[i, j] <- val
+-        k_train[j, i] <- val
+-      }
+-    }
+-  }
+-
+-  # Baseline cross-covariance matrix
+-  k_cross <- matrix(0.0, nrow = m, ncol = n)
+-  for (i in seq_len(m)) {
+-    for (j in seq_len(n)) {
+-      dist_sq <- 0.0
+-      for (dim_idx in seq_len(d)) {
+-        diff <- (target_coords[i, dim_idx] - coords[j, dim_idx]) / length_scales[dim_idx]
+-        dist_sq <- dist_sq + diff * diff
+-      }
+-      r <- sqrt3 * sqrt(dist_sq)
+-      k_cross[i, j] <- (1.0 + r) * exp(-r)
+-    }
+-  }
+-
+-  alpha <- solve(k_train, values)
++  chol_r <- chol(k_train)
++  k_inv <- chol2inv(chol_r)
++  alpha <- as.numeric(k_inv %*% values)
+   predictions <- as.numeric(k_cross %*% alpha)
+-
+-  # Naive leave-one-out residuals by solving each (N-1)x(N-1) subproblem explicitly
+-  loo_residuals <- numeric(n)
+-  for (i in seq_len(n)) {
+-    idx <- seq_len(n)[-i]
+-    sub_alpha <- solve(k_train[idx, idx, drop = FALSE], values[idx])
+-    pred_i <- sum(k_train[i, idx] * sub_alpha)
+-    loo_residuals[i] <- values[i] - pred_i
+-  }
++  loo_residuals <- as.numeric(alpha / diag(k_inv))
+ 
+   list(
+     predictions = predictions,
+diff --git a/src/matern.c b/src/matern.c
+new file mode 100644
+index 0000000..942ffd4
+--- /dev/null
++++ b/src/matern.c
+@@ -0,0 +1,74 @@
++#include <R.h>
++#include <Rinternals.h>
++#include <R_ext/Rdynload.h>
++#include <math.h>
++
++SEXP C_matern32_self(SEXP coords_sexp, SEXP ls_sexp, SEXP nugget_sexp) {
++    SEXP dims = getAttrib(coords_sexp, R_DimSymbol);
++    int n = INTEGER(dims)[0];
++    int d = INTEGER(dims)[1];
++    const double *coords = REAL(coords_sexp);
++    const double *ls = REAL(ls_sexp);
++    double nugget = REAL(nugget_sexp)[0];
++    double sqrt3 = sqrt(3.0);
++
++    SEXP out = PROTECT(allocMatrix(REALSXP, n, n));
++    double *K = REAL(out);
++
++    for (int i = 0; i < n; ++i) {
++        K[i + (size_t)n * i] = 1.0 + nugget;
++        for (int j = i + 1; j < n; ++j) {
++            double dist_sq = 0.0;
++            for (int k = 0; k < d; ++k) {
++                double diff = (coords[i + (size_t)n * k] - coords[j + (size_t)n * k]) / ls[k];
++                dist_sq += diff * diff;
++            }
++            double r = sqrt3 * sqrt(dist_sq);
++            double val = (1.0 + r) * exp(-r);
++            K[i + (size_t)n * j] = val;
++            K[j + (size_t)n * i] = val;
++        }
++    }
++    UNPROTECT(1);
++    return out;
++}
++
++SEXP C_matern32_cross(SEXP tgt_sexp, SEXP coords_sexp, SEXP ls_sexp) {
++    SEXP tgt_dims = getAttrib(tgt_sexp, R_DimSymbol);
++    SEXP crd_dims = getAttrib(coords_sexp, R_DimSymbol);
++    int m = INTEGER(tgt_dims)[0];
++    int d = INTEGER(tgt_dims)[1];
++    int n = INTEGER(crd_dims)[0];
++    const double *tgt = REAL(tgt_sexp);
++    const double *coords = REAL(coords_sexp);
++    const double *ls = REAL(ls_sexp);
++    double sqrt3 = sqrt(3.0);
++
++    SEXP out = PROTECT(allocMatrix(REALSXP, m, n));
++    double *K = REAL(out);
++
++    for (int j = 0; j < n; ++j) {
++        for (int i = 0; i < m; ++i) {
++            double dist_sq = 0.0;
++            for (int k = 0; k < d; ++k) {
++                double diff = (tgt[i + (size_t)m * k] - coords[j + (size_t)n * k]) / ls[k];
++                dist_sq += diff * diff;
++            }
++            double r = sqrt3 * sqrt(dist_sq);
++            K[i + (size_t)m * j] = (1.0 + r) * exp(-r);
++        }
++    }
++    UNPROTECT(1);
++    return out;
++}
++
++static const R_CallMethodDef CallEntries[] = {
++    {"C_matern32_self", (DL_FUNC) &C_matern32_self, 3},
++    {"C_matern32_cross", (DL_FUNC) &C_matern32_cross, 3},
++    {NULL, NULL, 0}
++};
++
++void R_init_spatialkern(DllInfo *dll) {
++    R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
++    R_useDynamicSymbols(dll, FALSE);
++}
